@@ -20,6 +20,10 @@ inputs:
         required: false
         type: string
         default: "main"
+    ssh-private-key:
+        description: The private ssh key.
+        type: string
+        required: true
 
 runs:
     using: 'composite'
@@ -34,7 +38,7 @@ runs:
           uses: webfactory/ssh-agent@v0.5.4
           if: ${{ runner.os == 'Linux' }}
           with:
-              ssh-private-key: ${{ secrets.DEPLOYSSHSECRET }} 
+              ssh-private-key: ${{ inputs.ssh-private-key }} 
 
         - name: Install Ninja
           if: ${{ runner.os == 'Linux' }}
