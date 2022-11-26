@@ -1,0 +1,73 @@
+name: Setup cFS
+description: Sets up a cFS directory structure.
+
+inputs:
+    swift-version:
+        description: "The swift version to use to build and test the package."
+        required: false
+        type: string
+        default: "5.6.3"
+    package-path:
+        description: "Path to the package relative to the cfs repository."
+        required: true
+        type: string
+    cfs-repository:
+        description: "The parent cfs repository containing the package under test in the format <organisation>/<repository>."
+        required: true
+        type: string
+    cfs-ref:
+        description: "The ref of the cfs repository to checkout."
+        required: false
+        type: string
+        default: "main"
+
+runs:
+    using: 'composite'
+
+    steps:
+        - uses: gilmourspace/install-swift@v1
+          if: ${{ runner.os == 'Linux' }}
+          with:
+              swift-version: ${{ inputs.swift-version }}
+
+        - name: Setup SSH Key
+          uses: webfactory/ssh-agent@v0.5.4
+          if: ${{ runner.os == 'Linux' }}
+          with:
+              ssh-private-key: ${{ secrets.DEPLOYSSHSECRET }} 
+
+        - name: Install Ninja
+          if: ${{ runner.os == 'Linux' }}
+          run: sudo apt install ninja-build
+
+        - name: Checkout cFS
+          uses: actions/checkout@v3
+          if: ${{ runner.os == 'Linux' }}
+          with:
+            ref: ${{ inputs.cfs-ref }}
+            repository: ${{ inputs.cfs-repository }}
+            submodules: recursive
+            ssh-key: ${{ secrets.DEPLOYSSHSECRET }}
+
+        - name: Compile Library
+          if: ${{ runner.os == 'Linux' }}
+          run: |
+            make SIMULATION=native prep
+            cd SwiftCFS
+            cmake -G Ninja -B build
+            cd build
+            ninja
+            sudo ninja install
+
+        - name: Checkout Repository
+          uses: actions/checkout@v3
+          if: ${{ runner.os == 'Linux' }}
+          with:
+            path: ${{ inputs.package-path }}
+
+        - name: Setup Environment
+          if: ${{ runner.os == 'Linux' }}
+          run: |
+            export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+            sudo sh -c "echo \"/usr/local/lib\" > /etc/ld.so.conf.d/cfs.conf"
+            sudo ldconfig
